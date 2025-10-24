@@ -1,0 +1,7 @@
+package_name = "example-package"
+repository_url = "https://github.com/example/repo"
+test_repo_mode = true
+package_version = "1.0.0"
+output_filename = "dependency_graph.png"
+max_depth = -3
+filter_substring = "test"
