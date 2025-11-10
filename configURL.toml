@@ -1,0 +1,7 @@
+package_name = "curl"
+repository_url = "http://archive.ubuntu.com/ubuntu/"
+test_repo_mode = false
+package_version = "7.68.0"
+output_filename = "deps_graph.png"
+max_depth = 2
+filter_substring = "*"
