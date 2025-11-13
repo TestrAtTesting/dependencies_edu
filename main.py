@@ -6,6 +6,7 @@ import gzip##для распаровки сжатых пакетов
 import io##для работы с потоками в памяти
 import re##для обработки символов в парсере
 
+
 class Config:
     def __init__(self):
         self.package_name = ""
@@ -15,6 +16,7 @@ class Config:
         self.output_filename = ""
         self.max_depth = 0
         self.filter_substring = ""
+
 
 def parse_toml_value(value_str):##кастомный парсер .toml раз уж нельзя использовать сторонние библиотеки
     value_str = value_str.strip()
@@ -36,6 +38,7 @@ def parse_toml_value(value_str):##кастомный парсер .toml раз �
     
     ##строка без кавычек
     return value_str
+
 
 def parse_depends_line(depends_line):##парсер строки зависимостей
     dependencies = []
@@ -62,6 +65,7 @@ def parse_depends_line(depends_line):##парсер строки зависим�
                 dependencies.append(alt)
     
     return dependencies
+
 
 def find_package_dependencies(packages_content, package_name, package_version):##ищет зависимости пакета нужной версии
     lines = packages_content.split('\n')
@@ -92,6 +96,7 @@ def find_package_dependencies(packages_content, package_name, package_version):#
     
     return dependencies
 
+
 def load_config(filename):
     config = Config()
     ##попытка загрузить конфигурацию
@@ -107,20 +112,17 @@ def load_config(filename):
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
         
-        ##пропуск комментариев и пустых строк
-        if not line or line.startswith('#'):
+        if not line or line.startswith('#'):##пропуск комментариев и пустых строк
             continue
         
-        ##проверка на синтаксис
-        if '=' not in line:
+        if '=' not in line:##проверка на синтаксис
             raise Exception(f"Invalid TOML syntax at line {line_num}: no '=' found")
         
         key, value = line.split('=', 1)
         key = key.strip()
         value = parse_toml_value(value)
         
-        ##установка значений в конфигурацию и проверка на неверные параметры
-        try:
+        try:##установка значений в конфигурацию и проверка на неверные параметры
             if key == "package_name":
                 config.package_name = str(value)
             elif key == "repository_url":
@@ -144,9 +146,7 @@ def load_config(filename):
     required_params = [
         ("package_name", config.package_name),
         ("repository_url", config.repository_url),
-        ("package_version", config.package_version),
-        ("output_filename", config.output_filename),
-        ("filter_substring", config.filter_substring)
+        ("output_filename", config.output_filename)
     ]
     
     for param_name, param_value in required_params:##наличие
@@ -157,6 +157,30 @@ def load_config(filename):
         raise Exception("Parameter 'max_depth' must be positive integer")
     
     return config
+
+
+def get_latest_package_version(packages_content, package_name):##находит последнюю версию пакета в содержимом packages
+    lines = packages_content.split('\n')
+    current_package = None
+    versions = []
+    
+    for line in lines:
+        line = line.strip()
+        
+        if line.startswith('Package:'):
+            current_package = line.split(':', 1)[1].strip()
+        
+        elif line.startswith('Version:') and current_package == package_name:
+            version = line.split(':', 1)[1].strip()
+            versions.append(version)
+    
+    if not versions:
+        raise Exception(f"Package {package_name} not found in repository")
+    
+    ##простая сортировка версий (можно улучшить для семантического версионирования)
+    versions.sort(reverse=True)
+    return versions[0]
+
 
 def get_packages_content(repository_url, test_repo_mode):##получает содержимое пакета
     if test_repo_mode:
@@ -202,13 +226,13 @@ def get_packages_content(repository_url, test_repo_mode):##получает со
         except Exception as e:
             raise Exception(f"Error processing Packages file: {e}")
 
-def main():
-    ##
+
+def main():##основная функция
+    default_path = r'C:\conf\config.toml'##при тестировании заменить
     if len(sys.argv) > 1:
         config_name = sys.argv[1]
     else:
-        config_name = "C:\conf\config.toml"
-    
+        config_name = default_path
     print(f"Using config file: {config_name}")
     
     try:
@@ -244,6 +268,7 @@ def main():
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
