@@ -1,0 +1,7 @@
+package_name = "python3"
+repository_url = "C:\Downloads\conf\test_repo\Packages.gz"
+test_repo_mode = true
+package_version = ""
+output_filename = "python3_deps.png"
+max_depth = 2
+filter_substring = ""
