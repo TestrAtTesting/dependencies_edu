@@ -295,7 +295,7 @@ def print_dependency_graph(graph, config):##выводит граф зависи
 
 
 def main():##основная функция
-    default_path = r'C:\conf\config.toml'
+    default_path = r'C:\Downloads\dependencies_edu-main\configURL.toml'
     if len(sys.argv) > 1:
         config_name = sys.argv[1]
     else:
@@ -333,3 +333,4 @@ def main():##основная функция
 
 if __name__ == "__main__":
     main()
+
