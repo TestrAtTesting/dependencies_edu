@@ -18,6 +18,56 @@ class Config:
         self.filter_substring = ""
 
 
+def build_dependency_graph(config, packages_content):##строит граф зависимостей с использованием dfs с рекурсией
+    graph = {}
+    visited = set()
+    recursion_stack = set()
+    
+    def dfs(current_package, current_depth):
+        if current_depth > config.max_depth:##проверка максимальной глубины
+            return
+        if config.filter_substring and config.filter_substring in current_package:##проверка фильтрации
+            return
+        if current_package in recursion_stack:##обнаружение циклических зависимостей
+            print(f"Cyclic dependency: {current_package}")
+            return
+        if current_package in visited:##если пакет уже посещен на текущей глубине - пропускаем
+            return
+        
+        visited.add(current_package)
+        recursion_stack.add(current_package)
+        
+        dependencies = []  # Инициализируем пустым списком
+        
+        try:##получаем зависимости текущего пакета
+
+            if not config.package_version and current_package == config.package_name:
+                # Для корневого пакета используем последнюю версию, если не указана
+                version_to_use = get_latest_package_version(packages_content, current_package)
+            else:
+                version_to_use = config.package_version if current_package == config.package_name else None
+            if version_to_use is None:
+                version_to_use = get_latest_package_version(packages_content, current_package)
+                
+            dependencies = find_package_dependencies(packages_content, current_package, version_to_use)
+            
+            ##добавляем зависимости в граф
+            graph[current_package] = dependencies
+            
+            ##рекурсивно обходим зависимости
+            for dep in dependencies:
+                dfs(dep, current_depth + 1)
+                
+        except Exception as e:
+            print(f"Warning: no dependencies for {current_package}: {e}")
+        finally:
+            recursion_stack.remove(current_package)
+    
+    ##запускаем dfs с корневого пакета
+    dfs(config.package_name, 0)
+    return graph
+
+
 def parse_toml_value(value_str):##кастомный парсер .toml раз уж нельзя использовать сторонние библиотеки
     value_str = value_str.strip()
     
@@ -112,17 +162,20 @@ def load_config(filename):
     for line_num, line in enumerate(lines, 1):
         line = line.strip()
         
-        if not line or line.startswith('#'):##пропуск комментариев и пустых строк
+        ##пропуск комментариев и пустых строк
+        if not line or line.startswith('#'):
             continue
         
-        if '=' not in line:##проверка на синтаксис
+        ##проверка на синтаксис
+        if '=' not in line:
             raise Exception(f"Invalid TOML syntax at line {line_num}: no '=' found")
         
         key, value = line.split('=', 1)
         key = key.strip()
         value = parse_toml_value(value)
         
-        try:##установка значений в конфигурацию и проверка на неверные параметры
+        ##установка значений в конфигурацию и проверка на неверные параметры
+        try:
             if key == "package_name":
                 config.package_name = str(value)
             elif key == "repository_url":
@@ -141,6 +194,7 @@ def load_config(filename):
                 raise Exception(f"Unknown config parameter: {key}")
         except (ValueError, TypeError) as e:
             raise Exception(f"Invalid value for parameter '{key}' at line {line_num}: {e}")
+
     
     ##проверка на корректность и наличие параметров
     required_params = [
@@ -227,8 +281,21 @@ def get_packages_content(repository_url, test_repo_mode):##получает со
             raise Exception(f"Error processing Packages file: {e}")
 
 
+def print_dependency_graph(graph, config):##выводит граф зависимостей в читаемом формате
+    print(f"\nDependencies graph for '{config.package_name}':")
+    print("=" * 50)
+    
+    for package, dependencies in graph.items():
+        if config.filter_substring and config.filter_substring in package:
+            continue 
+        if dependencies:
+            print(f"{package} -> {', '.join(dependencies)}")
+        else:
+            print(f"{package} -> (no dependencies)")
+
+
 def main():##основная функция
-    default_path = r'C:\conf\config.toml'##при тестировании заменить
+    default_path = r'C:\conf\config.toml'
     if len(sys.argv) > 1:
         config_name = sys.argv[1]
     else:
@@ -238,13 +305,11 @@ def main():##основная функция
     try:
         config = load_config(config_name)
         
-        ##получаем содержимое пакетов для определения доступных версий
         packages_content = get_packages_content(
             config.repository_url,
             config.test_repo_mode
         )
         
-        ##при отсутствии версии
         if not config.package_version:
             config.package_version = get_latest_package_version(
                 packages_content, 
@@ -252,19 +317,15 @@ def main():##основная функция
             )
             print(f"Using latest version: {config.package_version}")
         
-        ##получаем зависимости для выбранной версии
-        dependencies = find_package_dependencies(
-            packages_content,
-            config.package_name, 
-            config.package_version
-        )
+        ##этап 3: построение графа зависимостей
+        print("\n" + "="*50)
+        print("Building Graph")
+        print("="*50)
         
-        ##вывод
-        print("Dependencies of package {} version {}:".format(
-            config.package_name, config.package_version))
-        for dep in dependencies:
-            print(f"  - {dep}")
-    
+        dependency_graph = build_dependency_graph(config, packages_content)##строим граф зависимостей
+        
+        print_dependency_graph(dependency_graph, config)##выводим граф
+        
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
